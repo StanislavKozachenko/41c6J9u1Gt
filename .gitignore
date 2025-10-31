@@ -29,5 +29,12 @@ phpunit.phar
 tests/_output/*
 tests/_support/_generated
 
-#vagrant folder
+# vagrant folder
 /.vagrant
+
+# dotenv
+.env
+.env.test
+
+# docker volumes or overrides
+docker-data/
