@@ -1,9 +1,47 @@
-version: '2'
+version: "2"
+
 services:
   php:
     image: yiisoftware/yii2-php:7.4-apache
+    container_name: yii2_php
+    ports:
+      - "8080:80"
     volumes:
       - ~/.composer-docker/cache:/root/.composer/cache:delegated
       - ./:/app:delegated
+    depends_on:
+      - db
+    env_file:
+      - ./.env
+    working_dir: /app
+
+  db:
+    image: mysql:8.0
+    container_name: yii2_mysql
+    restart: always
+    env_file:
+      - ./.env
     ports:
-      - '8080:80'
+      - "${DB_PORT}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+    volumes:
+      - db_data:/var/lib/mysql
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: yii2_phpmyadmin
+    restart: always
+    ports:
+      - "8081:80"
+    env_file:
+      - ./.env
+    environment:
+      PMA_HOST: ${DB_HOST}
+      PMA_PORT: ${DB_PORT}
+    depends_on:
+      - db
+
+volumes:
+  db_data:
