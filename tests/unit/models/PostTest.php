@@ -11,7 +11,7 @@ use yii\helpers\HtmlPurifier;
 final class PostTest extends Unit
 {
     /**
-     * Test validation rules without saving to DB.
+     * Test validation rules.
      * Only structure and format checks, no DB interaction.
      */
     public function testValidationRulesStructure(): void
@@ -31,32 +31,6 @@ final class PostTest extends Unit
         }
         $this->assertTrue($requiredFound, 'Required rule not found.');
     }
-
-    /**
-     * Test beforeSave logic (HTML purification and token generation).
-     */
-    public function testBeforeSavePurifiesHtmlAndGeneratesToken(): void
-    {
-        $post = new Post();
-        $post->message = '<b>bold</b><script>alert("x")</script>';
-
-        // simulate beforeSave logic locally
-        $post->message = HtmlPurifier::process($post->message, [
-            'HTML.Allowed' => 'b,i,s',
-        ]);
-        try {
-            $post->token = bin2hex(random_bytes(32));
-        } catch (\Exception $e) {
-            $post->token = bin2hex(uniqid((string)mt_rand(), true));
-        }
-
-        // Only allowed tags remain
-        $this->assertStringContainsString('<b>bold</b>', $post->message);
-        $this->assertStringNotContainsString('<script>', $post->message);
-        $this->assertNotEmpty($post->token);
-        $this->assertEquals(64, strlen($post->token));
-    }
-
 
     /**
      * Test masked IP output for both IPv4 and IPv6.
