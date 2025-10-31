@@ -9,7 +9,7 @@ use yii\helpers\HtmlPurifier;
 class PostTest extends Unit
 {
     /**
-     * Test validation rules structure without DB.
+     * Test validation rules structure.
      */
     public function testValidationRulesStructure(): void
     {
