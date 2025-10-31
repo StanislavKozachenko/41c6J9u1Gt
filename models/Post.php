@@ -150,14 +150,18 @@ class Post extends ActiveRecord
      */
     public function getMaskedIp(): string
     {
+        if (filter_var($this->ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            $parts = explode('.', $this->ip);
+            return sprintf('%s.%s.**.**', $parts[0], $parts[1]);
+        }
+
         if (filter_var($this->ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
-            $parts = explode(':', $this->ip);
+            $parts = explode(':', inet_ntop(inet_pton($this->ip)));
+            $parts = array_map(fn($p) => str_pad($p, 4, '0', STR_PAD_LEFT), $parts);
             return implode(':', array_slice($parts, 0, 4)) . ':****:****:****:****';
         }
 
-        // IPv4
-        $parts = explode('.', $this->ip);
-        return sprintf('%s.%s.**.**', $parts[0] ?? '0', $parts[1] ?? '0');
+        return '';
     }
 
     /**
