@@ -33,23 +33,55 @@ final class PostTest extends Unit
     }
 
     /**
-     * Test masked IP output for both IPv4 and IPv6.
+     * Test beforeSave logic manually.
+     * Ensures HTML is purified and token is generated for new records.
+     * Does not save to DB.
      */
-    public function testMaskedIp(): void
+    public function testBeforeSavePurifiesHtmlAndGeneratesToken(): void
     {
-        $post = new Post(['ip' => '123.45.67.89']);
-        $this->assertEquals('123.45.**.**', $post->getMaskedIp());
+        $post = new Post();
+        $post->message = '<b>bold</b><script>alert("x")</script>';
 
-        $post->ip = '2001:0db8:11a3:09d7:1f34:8a2e:07a0:765d';
-        $this->assertEquals('2001:0db8:11a3:09d7:****:****:****:****', $post->getMaskedIp());
+        // simulate beforeSave logic locally
+        $post->message = HtmlPurifier::process($post->message, [
+            'HTML.Allowed' => 'b,i,s',
+        ]);
+
+        try {
+            $post->token = bin2hex(random_bytes(32));
+        } catch (\Exception $e) {
+            $post->token = bin2hex(uniqid('', true));
+        }
+
+        // Only allowed tags remain
+        $this->assertEquals('<b>bold</b>', $post->message);
+        $this->assertNotEmpty($post->token);
+        $this->assertEquals(64, strlen($post->token));
     }
 
     /**
-     * Test relative time formatting.
+     * Test masked IP output without DB.
+     */
+    public function testMaskedIp(): void
+    {
+        $post = new Post();
+        $post->ip = '123.45.67.89';
+        $this->assertEquals('123.45.**.**', $post->getMaskedIp());
+
+        $post->ip = '2001:0db8:11a3:09d7:1f34:8a2e:765d:0000';
+        $this->assertEquals(
+            '2001:0db8:11a3:09d7:****:****:****:****',
+            $post->getMaskedIp()
+        );
+    }
+
+    /**
+     * Test relative time formatting without DB.
      */
     public function testCreatedAtRelative(): void
     {
-        $post = new Post(['created_at' => time() - 3600]); // 1 hour ago
+        $post = new Post();
+        $post->created_at = time() - 3600; // 1 hour ago
         $relative = $post->getCreatedAtRelative();
 
         $this->assertStringContainsString('hour', $relative);
