@@ -11,14 +11,13 @@ use yii\db\ActiveRecord;
 use yii\db\BaseActiveRecord;
 use yii\behaviors\TimestampBehavior;
 use yii\helpers\HtmlPurifier;
+use app\messages\AppMessages;
 
 /**
- * Class Post
- *
- * ActiveRecord model for user messages (posts).
+ * Модель Post — пользовательские сообщения.
  *
  * @property int $id
- * @property string $author_name
+ * @property string $author
  * @property string $email
  * @property string $message
  * @property string $ip
@@ -29,16 +28,17 @@ use yii\helpers\HtmlPurifier;
  */
 class Post extends ActiveRecord
 {
-    /**
-     * {@inheritdoc}
-     */
+    /** Поле для капчи */
+    public $verificationCode;
+
+    /** Название таблицы */
     public static function tableName(): string
     {
         return '{{%post}}';
     }
 
     /**
-     * Automatically handle created_at and updated_at timestamps.
+     * {@inheritdoc}
      */
     public function behaviors(): array
     {
@@ -54,63 +54,53 @@ class Post extends ActiveRecord
         ];
     }
 
-    /**
-     * Validation rules.
-     */
+    /** Правила валидации */
     public function rules(): array
     {
         return [
-            [['author_name', 'email', 'message'], 'required'],
-            ['author_name', 'string', 'min' => 2, 'max' => 15],
-            ['message', 'string', 'min' => 5, 'max' => 1000],
-            ['email', 'email'],
-            ['message', 'match', 'pattern' => '/^(?!\s*$).+$/', 'message' => 'Message cannot be empty or whitespace only.'],
+            [['author', 'email', 'message', 'verificationCode'], 'required', 'message' => 'Поле обязательно для заполнения.'],
+            ['author', 'string', 'min' => 2, 'max' => 15, 'tooShort' => 'Имя должно быть от 2 до 15 символов.', 'tooLong' => 'Имя должно быть от 2 до 15 символов.'],
+            ['message', 'string', 'min' => 5, 'max' => 1000, 'tooShort' => 'Сообщение должно быть от 5 до 1000 символов.', 'tooLong' => 'Сообщение должно быть от 5 до 1000 символов.'],
+            ['email', 'email', 'message' => 'Некорректный e-mail.'],
             ['ip', 'ip'],
+            ['verificationCode', 'captcha', 'captchaAction' => 'post/captcha', 'caseSensitive' => false, 'message' => 'Неверный проверочный код.'],
         ];
     }
 
-    /**
-     * Attribute labels.
-     */
+    /** Подписи полей */
     public function attributeLabels(): array
     {
         return [
-            'author_name' => 'Author Name',
+            'author' => 'Имя автора',
             'email' => 'E-mail',
-            'message' => 'Message',
-            'ip' => 'IP Address',
-            'created_at' => 'Created At',
+            'message' => 'Сообщение',
+            'ip' => 'IP-адрес',
+            'created_at' => 'Дата создания',
+            'verificationCode' => 'Проверочный код (капча)',
         ];
     }
 
-    /**
-     * Purify allowed HTML before saving.
-     */
+    /** Перед сохранением */
     public function beforeSave($insert): bool
     {
         if (!parent::beforeSave($insert)) {
             return false;
         }
 
-        // Allow only safe HTML tags
-        $this->message = HtmlPurifier::process($this->message, [
-            'HTML.Allowed' => 'b,i,s',
-        ]);
+        // Очистка HTML (разрешены только <b>, <i>, <s>)
+        $this->message = HtmlPurifier::process($this->message, ['HTML.Allowed' => 'b,i,s']);
 
-        // Fill IP if missing
+        // Установка IP, если не задан
         if (!$this->ip) {
             $this->ip = Yii::$app->request->userIP ?? '0.0.0.0';
         }
 
-        // Generate token for edit/delete links
+        // Генерация токена при создании
         if ($this->isNewRecord) {
             try {
                 $this->token = (new Security())->generateRandomString(64);
             } catch (Exception $e) {
-                // Logging the error
-                Yii::error('Failed to generate token: ' . $e->getMessage());
-
-                // secure unique string
+                Yii::error('Не удалось сгенерировать токен:' . $e->getMessage(), __METHOD__);
                 $this->token = bin2hex(uniqid((string)mt_rand(), true));
             }
         }
@@ -118,26 +108,45 @@ class Post extends ActiveRecord
         return true;
     }
 
-    /**
-     * Soft delete method.
-     */
+    /** Мягкое удаление */
     public function softDelete(): bool
     {
         $this->deleted_at = time();
-
         try {
             return $this->save(false, ['deleted_at']);
         } catch (\yii\db\Exception $e) {
-            // Logging the error
-            Yii::error('Failed to soft delete post: ' . $e->getMessage());
+            Yii::error('Не удалось сгенерировать токен:' . $e->getMessage(), __METHOD__);
             return false;
         }
     }
 
+    /** Маскированный IP */
+    public function getMaskedIp(): string
+    {
+        if (strpos($this->ip, ':') !== false) {
+            $parts = explode(':', $this->ip);
+            return implode(':', array_slice($parts, 0, 4)) . ':****:****:****:****';
+        }
+
+        $parts = explode('.', $this->ip);
+        return sprintf('%s.%s.**.**', $parts[0] ?? '0', $parts[1] ?? '0');
+    }
+
+    /** Относительное время создания */
+    public function getCreatedAtRelative(): string
+    {
+        $formatter = clone Yii::$app->formatter;
+        $formatter->locale = 'ru-RU';
+        $formatter->timeZone = Yii::$app->timeZone;
+        return $formatter->asRelativeTime($this->created_at);
+    }
+
     /**
-     * Count how many posts were made by the same IP.
+     * Подсчёт количества постов автора по IP
+     *
+     * @return string
      */
-    public function getAuthorPostCount(): int
+    public function getAuthorPostCount(): string
     {
         return self::find()
             ->where(['ip' => $this->ip])
@@ -145,29 +154,4 @@ class Post extends ActiveRecord
             ->count();
     }
 
-    /**
-     * Get masked IP for display.
-     */
-    public function getMaskedIp(): string
-    {
-        if (strpos($this->ip, ':') !== false) {
-            // Treat as IPv6, just mask last 4 segments
-            $parts = explode(':', $this->ip);
-            $maskedParts = array_slice($parts, 0, 4);
-            return implode(':', $maskedParts) . ':****:****:****:****';
-        }
-
-        // IPv4
-        $parts = explode('.', $this->ip);
-        return sprintf('%s.%s.**.**', $parts[0] ?? '0', $parts[1] ?? '0');
-    }
-
-
-    /**
-     * Get relative creation time (e.g. "10 minutes ago").
-     */
-    public function getCreatedAtRelative(): string
-    {
-        return Yii::$app->formatter->asRelativeTime($this->created_at);
-    }
 }
