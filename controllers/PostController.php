@@ -3,6 +3,7 @@
 namespace app\controllers;
 
 use Yii;
+use yii\data\ActiveDataProvider;
 use yii\web\Controller;
 use yii\web\Response;
 use yii\web\BadRequestHttpException;
@@ -10,12 +11,14 @@ use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
 use yii\db\Exception as DbException;
 use app\models\Post;
+use app\messages\AppMessages;
 
 /**
  * PostController handles creation, display, editing, and soft deletion of posts.
  */
 class PostController extends Controller
 {
+    private const PAGE_SIZE = 4; // Кол-во постов на странице
     /**
      * {@inheritdoc}
      */
@@ -31,10 +34,8 @@ class PostController extends Controller
         ];
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function actions(): array
+    /** Капча (если используется) */
+    public function actions()
     {
         return [
             'captcha' => [
@@ -44,30 +45,27 @@ class PostController extends Controller
         ];
     }
 
-    /**
-     * Creates Post object
-     *
-     * @return Post
-     */
-    protected function createPostModel(): Post
+    /** Главная страница со списком постов */
+    public function actionIndex()
     {
-        return new Post();
-    }
+        $query = Post::find()->where(['deleted_at' => null])->orderBy(['created_at' => SORT_DESC]);
+        $dataProvider = new ActiveDataProvider([
+            'query' => $query,
+            'pagination' => ['pageSize' => self::PAGE_SIZE],
+        ]);
 
-    /**
-     * Displays list of posts.
-     *
-     * @return string
-     */
-    public function actionIndex(): string
-    {
-        $posts = Post::find()
-            ->where(['deleted_at' => null])
-            ->orderBy(['created_at' => SORT_DESC])
-            ->all();
+        $pagination = $dataProvider->getPagination();
+        $totalCount = $dataProvider->getTotalCount();
+        $start = $pagination->page * $pagination->pageSize + 1;
+        $end = min($start + $pagination->pageSize - 1, $totalCount);
 
         return $this->render('index', [
-            'posts' => $posts,
+            'model' => new Post(),
+            'dataProvider' => $dataProvider,
+            'start' => $start,
+            'end' => $end,
+            'totalCount' => $totalCount,
+            'pagination' => $pagination,
         ]);
     }
 
