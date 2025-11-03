@@ -33,7 +33,7 @@
 ### 1. Клонируйте репозиторий
 
 ```bash
-https://github.com/StanislavKozachenko/41c6J9u1Gt.git
+git clone https://github.com/StanislavKozachenko/41c6J9u1Gt.git
 cd 41c6J9u1Gt
 ```
 
