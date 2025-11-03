@@ -211,7 +211,33 @@ class PostController extends Controller
         return null;
     }
 
+    /**
+     * Удаление поста
+     */
+    public function actionDelete($id, $token)
+    {
+        $post = $this->findPostOrFlash($id, $token);
+        if (!$post) return $this->redirect(['index']);
 
+        if ($post->deleted_at !== null) {
+            Yii::$app->session->setFlash('info', AppMessages::DELETE_SUCCESS);
+            return $this->redirect(['index']);
+        }
+
+        if (time() - $post->created_at > self::DELETE_LIMIT) {
+            Yii::$app->session->setFlash('error', AppMessages::DELETE_EXPIRED);
+            return $this->redirect(['index']);
+        }
+
+        if (Yii::$app->request->isPost) {
+            $post->deleted_at = time();
+            $post->save(false);
+            Yii::$app->session->setFlash('success', AppMessages::DELETE_SUCCESS);
+            return $this->redirect(['index']);
+        }
+
+        return $this->render('delete', ['model' => $post]);
+    }
 
     /**
      * Поиск поста по ID и токену с flash-сообщением при ошибке
@@ -248,78 +274,5 @@ class PostController extends Controller
         } catch (\Exception $e) {
             Yii::error(AppMessages::LOG_MAIL_ERROR . $e->getMessage(), __METHOD__);
         }
-    }
-
-    /**
-     * Updates a post by token (editable for 12 hours).
-     *
-     * @param string $token
-     * @return string|Response
-     * @throws NotFoundHttpException
-     * @throws BadRequestHttpException
-     */
-    public function actionUpdate(string $token)
-    {
-        $post = Post::findOne(['token' => $token, 'deleted_at' => null]);
-
-        if (!$post) {
-            throw new NotFoundHttpException('Post not found or deleted.');
-        }
-
-        if (time() - $post->created_at > 12 * 3600) {
-            throw new BadRequestHttpException('Editing period expired.');
-        }
-
-        if ($post->load(Yii::$app->request->post())) {
-            try {
-                if ($post->save()) {
-                    return $this->redirect(['index']);
-                }
-            } catch (DbException $e) {
-                Yii::error('Failed to update post: ' . $e->getMessage());
-                $post->addError('message', 'Internal error, please try again later.');
-            }
-        }
-
-        return $this->render('update', [
-            'model' => $post,
-        ]);
-    }
-
-    /**
-     * Soft deletes a post by token (confirm deletion).
-     *
-     * @param string $token
-     * @return string|Response
-     * @throws NotFoundHttpException
-     * @throws BadRequestHttpException
-     */
-    public function actionDelete(string $token)
-    {
-        $post = Post::findOne(['token' => $token, 'deleted_at' => null]);
-
-        if (!$post) {
-            throw new NotFoundHttpException('Post not found or already deleted.');
-        }
-
-        if (time() - $post->created_at > 14 * 24 * 3600) {
-            throw new BadRequestHttpException('Deletion period expired.');
-        }
-
-        if (Yii::$app->request->isPost) {
-            try {
-                $post->softDelete();
-                Yii::$app->session->setFlash('success', 'Post deleted.');
-                return $this->redirect(['index']);
-            } catch (DbException $e) {
-                Yii::error('Failed to delete post: ' . $e->getMessage());
-                Yii::$app->session->setFlash('error', 'Internal error, please try again later.');
-            }
-        }
-
-        // Render confirmation page
-        return $this->render('delete', [
-            'model' => $post,
-        ]);
     }
 }
