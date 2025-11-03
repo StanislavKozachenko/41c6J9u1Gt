@@ -58,12 +58,12 @@ class Post extends ActiveRecord
     public function rules(): array
     {
         return [
-            [['author', 'email', 'message', 'verificationCode'], 'required', 'message' => 'Поле обязательно для заполнения.'],
-            ['author', 'string', 'min' => 2, 'max' => 15, 'tooShort' => 'Имя должно быть от 2 до 15 символов.', 'tooLong' => 'Имя должно быть от 2 до 15 символов.'],
-            ['message', 'string', 'min' => 5, 'max' => 1000, 'tooShort' => 'Сообщение должно быть от 5 до 1000 символов.', 'tooLong' => 'Сообщение должно быть от 5 до 1000 символов.'],
-            ['email', 'email', 'message' => 'Некорректный e-mail.'],
-            ['ip', 'ip'],
-            ['verificationCode', 'captcha', 'captchaAction' => 'post/captcha', 'caseSensitive' => false, 'message' => 'Неверный проверочный код.'],
+            [['author', 'email', 'message', 'verificationCode'], 'required', 'message' => AppMessages::ERROR_COMMON],
+            ['author', 'string', 'min' => 2, 'max' => 15, 'tooShort' => AppMessages::ERROR_AUTHOR_LENGTH, 'tooLong' => AppMessages::ERROR_AUTHOR_LENGTH],
+            ['message', 'string', 'min' => 5, 'max' => 1000, 'tooShort' => AppMessages::ERROR_MESSAGE_LENGTH, 'tooLong' => AppMessages::ERROR_MESSAGE_LENGTH],
+            ['email', 'email', 'message' => AppMessages::ERROR_EMAIL],
+            ['ip', 'ip', 'message' => AppMessages::ERROR_IP],
+            ['verificationCode', 'captcha', 'captchaAction' => 'post/captcha', 'caseSensitive' => false, 'message' => AppMessages::ERROR_CAPTCHA],
         ];
     }
 
@@ -71,36 +71,29 @@ class Post extends ActiveRecord
     public function attributeLabels(): array
     {
         return [
-            'author' => 'Имя автора',
-            'email' => 'E-mail',
-            'message' => 'Сообщение',
-            'ip' => 'IP-адрес',
-            'created_at' => 'Дата создания',
-            'verificationCode' => 'Проверочный код (капча)',
+            'author' => AppMessages::LABEL_AUTHOR,
+            'email' => AppMessages::LABEL_EMAIL,
+            'message' => AppMessages::LABEL_MESSAGE,
+            'ip' => AppMessages::LABEL_IP,
+            'created_at' => AppMessages::LABEL_CREATED_AT,
+            'verificationCode' => AppMessages::LABEL_VERIFICATION_CODE,
         ];
     }
 
     /** Перед сохранением */
     public function beforeSave($insert): bool
     {
-        if (!parent::beforeSave($insert)) {
-            return false;
-        }
+        if (!parent::beforeSave($insert)) return false;
 
-        // Очистка HTML (разрешены только <b>, <i>, <s>)
         $this->message = HtmlPurifier::process($this->message, ['HTML.Allowed' => 'b,i,s']);
 
-        // Установка IP, если не задан
-        if (!$this->ip) {
-            $this->ip = Yii::$app->request->userIP ?? '0.0.0.0';
-        }
+        if (!$this->ip) $this->ip = Yii::$app->request->userIP ?? '0.0.0.0';
 
-        // Генерация токена при создании
         if ($this->isNewRecord) {
             try {
                 $this->token = (new Security())->generateRandomString(64);
             } catch (Exception $e) {
-                Yii::error('Не удалось сгенерировать токен:' . $e->getMessage(), __METHOD__);
+                Yii::error(AppMessages::LOG_TOKEN_FAIL . $e->getMessage(), __METHOD__);
                 $this->token = bin2hex(uniqid((string)mt_rand(), true));
             }
         }
@@ -115,9 +108,15 @@ class Post extends ActiveRecord
         try {
             return $this->save(false, ['deleted_at']);
         } catch (\yii\db\Exception $e) {
-            Yii::error('Не удалось сгенерировать токен:' . $e->getMessage(), __METHOD__);
+            Yii::error(AppMessages::LOG_DELETE_FAIL . $e->getMessage(), __METHOD__);
             return false;
         }
+    }
+
+    /** Количество постов автора (по IP) */
+    public function getAuthorPostCount()
+    {
+        return self::find()->where(['ip' => $this->ip])->andWhere(['deleted_at' => null])->count();
     }
 
     /** Маскированный IP */
@@ -140,18 +139,4 @@ class Post extends ActiveRecord
         $formatter->timeZone = Yii::$app->timeZone;
         return $formatter->asRelativeTime($this->created_at);
     }
-
-    /**
-     * Подсчёт количества постов автора по IP
-     *
-     * @return string
-     */
-    public function getAuthorPostCount(): string
-    {
-        return self::find()
-            ->where(['ip' => $this->ip])
-            ->andWhere(['deleted_at' => null])
-            ->count();
-    }
-
 }

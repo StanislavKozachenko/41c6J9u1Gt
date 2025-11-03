@@ -8,7 +8,6 @@ $config = [
     'name' => 'StoryValut',
     'basePath' => dirname(__DIR__),
     'bootstrap' => ['log'],
-    'language' => 'ru-RU',
     'aliases' => [
         '@bower' => '@vendor/bower-asset',
         '@npm'   => '@vendor/npm-asset',
@@ -17,6 +16,14 @@ $config = [
         'request' => [
             // !!! insert a secret key in the following (if it is empty) - this is required by cookie validation
             'cookieValidationKey' => 's9sD4LEJKDk_bxLlCa-Jsf2pSuRXzXAZ',
+        ],
+        'formatter' => [
+            'class' => 'yii\i18n\Formatter',
+            'locale' => 'ru-RU',
+            'timeZone' => 'Europe/Moscow',
+            'datetimeFormat' => 'php:d.m.Y H:i',
+            'dateFormat' => 'php:d.m.Y',
+            'timeFormat' => 'php:H:i:s',
         ],
         'cache' => [
             'class' => 'yii\caching\FileCache',
