@@ -37,6 +37,14 @@ git clone https://github.com/StanislavKozachenko/41c6J9u1Gt.git
 cd 41c6J9u1Gt
 ```
 
+### Создайте файл .env 
+Изменив расширение файла `.env.example` на `.env`.
+
+И задайте значения необходимым переменным среды.
+- DB_NAME= `'database name'`
+- DB_USER= `'database username'`
+- DB_PASSWORD= `'database password'`
+- DB_PORT= `'database port'`
 ---
 
 ### 2. Установите зависимости через Composer
@@ -67,21 +75,13 @@ docker-compose up -d
 
 ### 4. Примените миграции базы данных
 
+После запуска и инициализации контейнера `yii2_phpmyadmin` пропишите команду запуска миграций
+
 ```bash
 docker exec -it yii2_php php yii migrate
 ```
 
 При появлении вопроса — подтвердите действие, введя `yes`.
-
----
-
-### 5. Готово!
-
-Откройте проект в браузере:
-
-- Сайт: [http://localhost:8080](http://localhost:8080)
-- phpMyAdmin: [http://localhost:8081](http://localhost:8081)  
-  (логин/пароль указываются в `.env` или `docker-compose.yml`)
 
 ---
 
@@ -102,6 +102,17 @@ sudo chmod -R 777 runtime web/assets
 
 ---
 
+### 5. Готово!
+
+Откройте проект в браузере:
+
+- Сайт: [http://localhost:8080](http://localhost:8080)
+- phpMyAdmin: [http://localhost:8081](http://localhost:8081)  
+  (логин/пароль указываются в `.env` или `docker-compose.yml`)
+
+
+---
+
 ## Проверка писем
 
 Все письма (ссылки на редактирование/удаление постов) сохраняются в виде файлов `.eml`.  
@@ -109,3 +120,4 @@ sudo chmod -R 777 runtime web/assets
 
 - **Thunderbird**
 - **Microsoft Outlook**
+- **EML Reader**
