@@ -86,3 +86,22 @@ a.desc:after {
 .form-group {
     margin-bottom: 1rem;
 }
+
+.pagination .page-item .page-link {
+    padding: 0.15rem 0.5rem;
+    font-size: 1rem;
+    background-color: #28a745;
+    border: 1px solid #28a745;
+    color: #fff;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #218838;
+    border-color: #1e7e34;
+}
+
+.pagination .page-item .page-link:hover {
+    background-color: #218838;
+    border-color: #1e7e34;
+    color: white;
+}
